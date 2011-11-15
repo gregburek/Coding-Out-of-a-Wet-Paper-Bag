@@ -4,5 +4,8 @@ runtime: python
 api_version: 1
 
 handlers:
+- url: /sytlesheets
+  static_dir: stylesheeets
+
 - url: /.*
   script: helloworld.py
