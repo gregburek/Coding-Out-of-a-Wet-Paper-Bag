@@ -1,3 +1,6 @@
+import os
+from google.appengine.ext.webapp import template
+
 import cgi
 import datetime
 import urllib
@@ -25,38 +28,26 @@ def guestbook_key(guestbook_name=None):
 
 class MainPage(webapp.RequestHandler):
     def get(self):
-        self.response.out.write('<html><body>')
         guestbook_name=self.request.get('guestbook_name')
+        greetings_query = Greeting.all().ancestor(
+                guestbook_key(guestbook_name)).order('-date')
+        greetings = greetings_query.fetch(10)
 
-        # Ancestor Queries rule
-        greetings = db.GqlQuery("SELECT *"
-                                "FROM Greeting "
-                                "WHERE ANCESTOR IS :1 "
-                                "ORDER BY date DESC LIMIT 10",
-                                guestbook_key(guestbook_name))
+        if users.get_current_user():
+            url = users.create_logout_url(self.request.uri)
+            url_linktext = 'Logout'
+        else:
+            url = users.create_login_url(self.request.uri)
+            url_linktext = 'Login'
 
-        for greeting in greetings:
-            if greeting.author:
-                self.response.out.write(
-                        '<b>%s</b>:' % greeting.author.nickname())
-            else:
-                self.response.out.write('An Anon person wrote:')
-            self.response.out.write('<blockquote>%s</blockquote>' % 
-                        cgi.escape(greeting.content))
+        template_values = {
+                'greetings': greetings,
+                'url':url,
+                'url_linktext': url_linktext,
+                }
+        path = os.path.join(os.path.dirname(__file__), 'index.html')
+        self.response.out.write(template.render(path, template_values))
 
-        self.response.out.write("""
-                    <form action="/sign?%s" method="post">
-                    <div><textarea name="content" rows="3"
-                    cols="60"></textarea></div>
-                    <div><input type="submit" value="Sign Guestbook"></div>
-                    </form>
-                    <hr>
-                    <form>Guestbook name: <input value="%s"
-                    name="guestbook_name">
-                    <input type="submit" value="switch"></form>
-                    </body>
-                    </html>""" % (urllib.urlencode({'guestbook_name':guestbook_name}),
-                        cgi.escape(guestbook_name)))
 
 class Guestbook(webapp.RequestHandler):
     def post(self):
